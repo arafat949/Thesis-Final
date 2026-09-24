@@ -1,0 +1,41 @@
+{
+  "name": "payment-fields",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/payment-fields/src",
+  "projectType": "application",
+  "tags": ["scope:hosted-fields", "type:app"],
+  "targets": {
+    "serve": {
+      "executor": "@nx/vite:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "payment-fields:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "payment-fields:build:development",
+          "hmr": true
+        },
+        "production": {
+          "buildTarget": "payment-fields:build:production"
+        }
+      }
+    },
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/payment-fields"
+      },
+      "configurations": {
+        "development": {
+          "mode": "development"
+        },
+        "production": {
+          "mode": "production"
+        }
+      }
+    }
+  }
+}

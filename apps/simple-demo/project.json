@@ -1,0 +1,41 @@
+{
+  "name": "simple-demo",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/simple-demo/src",
+  "projectType": "application",
+  "tags": ["scope:hosted-fields", "type:app"],
+  "targets": {
+    "serve": {
+      "executor": "@nx/vite:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "simple-demo:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "simple-demo:build:development",
+          "hmr": true
+        },
+        "production": {
+          "buildTarget": "simple-demo:build:production"
+        }
+      }
+    },
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/simple-demo"
+      },
+      "configurations": {
+        "development": {
+          "mode": "development"
+        },
+        "production": {
+          "mode": "production"
+        }
+      }
+    }
+  }
+}

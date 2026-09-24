@@ -1,0 +1,312 @@
+import type {
+  halalpayConfig,
+  CreateFieldsOptions,
+  FieldEventType,
+  FieldsEventCallback,
+  FieldChangeEvent,
+  HostedFieldsInstance,
+  FieldInstance,
+  PaymentConfirmResult,
+  PaymentIntentResult,
+  PaymentAmount,
+} from './types';
+
+import {
+  type HostedFieldsMessage,
+  type InitMessage,
+  type StateChangeMessage,
+
+  type ReadyMessage,
+  type PaymentIntentResponseMessage,
+  createBaseMessage,
+  generateSessionId,
+  generateNonce,
+  isValidSessionMessage,
+  PaymentConfirmResponseMessage,
+} from './protocol';
+
+import {
+  ENVIRONMENTS,
+} from './config';
+
+class HostedFields implements HostedFieldsInstance {
+  private config: Required<halalpayConfig>;
+  private sessionId: string;
+  private cardField: FieldInstance | null = null;
+  private eventListeners: Map<string, Set<FieldsEventCallback>> = new Map();
+  private pendingInit: (() => void) | null = null;
+  private pendingPaymentConfirm: {
+    resolve: (result: PaymentConfirmResult) => void;
+    reject: (error: any) => void;
+    idempotencyKey: string;
+  } | null = null;
+  private pendingIntent: {
+    resolve: (result: PaymentIntentResult) => void;
+    reject: (error: any) => void;
+    idempotencyKey: string;
+  } | null = null;
+
+  constructor(config: halalpayConfig) {
+    const envConfig = ENVIRONMENTS[config.environment];
+    this.config = {
+      publicKey: config.publicKey,
+      environment: config.environment,
+      iframeOrigin: config.iframeOrigin || envConfig.iframeOrigin,
+      apiOrigin: config.apiOrigin || envConfig.apiOrigin,
+    };
+    this.sessionId = generateSessionId();
+    window.addEventListener('message', this.handleMessage.bind(this));
+  }
+
+  private handleMessage(event: MessageEvent): void {
+    console.log(
+      '[web-sdk] message received',
+      {
+        origin: event.origin,
+        expectedOrigin: this.config.iframeOrigin,
+        data: event.data,
+      }
+    );
+
+    if (event.origin !== this.config.iframeOrigin) {
+      console.warn('[web-sdk] Ignoring message: origin mismatch');
+      return;
+    }
+
+    if (!isValidSessionMessage(event.data, this.sessionId)) {
+      console.warn('[web-sdk] Ignoring message: invalid session/message');
+      return;
+    }
+
+    const message = event.data as HostedFieldsMessage;
+    console.log('[web-sdk] Received message from hosted fields:', event);
+
+    switch (message.type) {
+      case 'READY':
+        this.handleReady(message as ReadyMessage);
+        break;
+      case 'STATE_CHANGE':
+        this.handleStateChange(message as StateChangeMessage);
+        break;
+      case 'PAYMENT_CONFIRM_RESPONSE':
+        this.handlePaymentConfirm(message as PaymentConfirmResponseMessage);
+        break;
+      case 'PAYMENT_INTENT_RESPONSE':
+        this.handleIntentResponse(message as PaymentIntentResponseMessage);
+        break;
+    }
+  }
+
+  private handleReady(message: ReadyMessage): void {
+    if (this.cardField) {
+      this.cardField.ready = true;
+      this.emitEvent({ type: 'ready', field: message.payload.fieldType, state: this.cardField.state });
+    }
+    
+    if (this.pendingInit) {
+      this.pendingInit();
+      this.pendingInit = null;
+    }
+  }
+
+  private handleStateChange(message: StateChangeMessage): void {
+    if (this.cardField) {
+      this.cardField.state = message.payload.state;
+      this.emitEvent({ type: 'change', field: message.payload.fieldType, state: this.cardField.state });
+    }
+  }
+
+    private handlePaymentConfirm(message: PaymentConfirmResponseMessage): void {
+    console.log(
+      '[web-sdk] >>> PAYMENT_CONFIRM_RESPONSE received',
+      message
+    );
+
+    if (!this.pendingPaymentConfirm) {
+      console.error(
+        '[web-sdk] No pending PaymentConfirm request'
+      );
+      return;
+    }
+
+    if (
+      message.payload.idempotencyKey !==
+      this.pendingPaymentConfirm.idempotencyKey
+    ) {
+      console.error(
+        '[web-sdk] PaymentConfirm idempotencyKey mismatch',
+        {
+          expected: this.pendingPaymentConfirm.idempotencyKey,
+          received: message.payload.idempotencyKey,
+        }
+      );
+      return;
+    }
+
+    const { resolve, reject } = this.pendingPaymentConfirm;
+    this.pendingPaymentConfirm = null;
+
+    if (message.payload.success && message.payload.result) {
+      console.log(
+        '[web-sdk] >>> PaymentConfirm SUCCESS',
+        message.payload.result
+      );
+      resolve(message.payload.result);
+    } else {
+      console.error(
+        '[web-sdk] >>> PaymentConfirm FAILED',
+        message.payload.error
+      );
+      reject(
+        message.payload.error ||
+        new Error('Payment confirm failed')
+      );
+    }
+  }
+
+  private handleIntentResponse(message: PaymentIntentResponseMessage): void {
+    if (!this.pendingIntent) return;
+    if (message.payload.idempotencyKey !== this.pendingIntent.idempotencyKey) return;
+
+    const { resolve, reject } = this.pendingIntent;
+    this.pendingIntent = null;
+
+    if (message.payload.success && message.payload.result) {
+      resolve(message.payload.result);
+    } else {
+      reject(message.payload.error || new Error('Payment intent failed'));
+    }
+  }
+
+  private emitEvent(event: FieldChangeEvent): void {
+    const listeners = this.eventListeners.get(event.type);
+    if (listeners) listeners.forEach((cb) => cb(event));
+    
+    const allListeners = this.eventListeners.get('all');
+    if (allListeners) allListeners.forEach((cb) => cb(event));
+  }
+
+  async create(options: CreateFieldsOptions): Promise<void> {
+    const container = document.querySelector(options.selector);
+    if (!container) throw new Error(`Container not found: ${options.selector}`);
+
+    const iframe = document.createElement('iframe');
+    iframe.src = this.config.iframeOrigin;
+    iframe.style.cssText = 'border:none;width:100%;height:100%;display:block;background:transparent;';
+
+    const fieldInstance: FieldInstance = {
+      iframe,
+      container: container as HTMLElement,
+      state: { isEmpty: true, isValid: false },
+      ready: false,
+    };
+
+    this.cardField = fieldInstance;
+    container.innerHTML = '';
+    container.appendChild(iframe);
+
+    return new Promise((resolve) => {
+      this.pendingInit = resolve;
+      iframe.onload = () => {
+        this.sendInitMessage();
+      };
+    });
+  }
+
+  private sendInitMessage(): void {
+    if (!this.cardField?.iframe.contentWindow) return;
+
+    const message: InitMessage = {
+      ...createBaseMessage('INIT', this.sessionId),
+      payload: {
+        publicKey: this.config.publicKey,
+        environment: this.config.environment,
+        parentOrigin: window.location.origin,
+      },
+    } as InitMessage;
+
+    this.cardField.iframe.contentWindow.postMessage(message, this.config.iframeOrigin);
+  }
+
+  on(event: FieldEventType | 'all', callback: FieldsEventCallback): void {
+    if (!this.eventListeners.has(event)) this.eventListeners.set(event, new Set());
+    this.eventListeners.get(event)!.add(callback);
+  }
+
+  clear(): void {
+      this.cardField?.iframe.contentWindow?.postMessage(createBaseMessage('CLEAR', this.sessionId), this.config.iframeOrigin);
+  }
+  
+  async PaymentConfirm(clientSecret: string, verificationCode?: string): Promise<PaymentConfirmResult> {
+    if (!this.cardField?.iframe.contentWindow) {
+      throw new Error('Card field missing');
+    }
+
+    const idempotencyKey = generateNonce();
+
+    console.log('[web-sdk] PaymentConfirm called');
+    console.log('[web-sdk] clientSecret:', clientSecret);
+    console.log('[web-sdk] iframeOrigin:', this.config.iframeOrigin);
+
+    return new Promise((resolve, reject) => {
+      this.pendingPaymentConfirm = {
+        resolve,
+        reject,
+        idempotencyKey
+      };
+
+      const message = {
+        ...createBaseMessage('PAYMENT_CONFIRM_REQUEST', this.sessionId),
+        payload: {
+          clientSecret,
+          verificationCode,
+          idempotencyKey
+        },
+      };
+
+      console.log('[web-sdk] Sending PAYMENT_CONFIRM_REQUEST:', message);
+
+      this.cardField!.iframe.contentWindow!.postMessage(
+        message,
+        this.config.iframeOrigin
+      );
+
+      setTimeout(() => {
+        if (
+          this.pendingPaymentConfirm &&
+          this.pendingPaymentConfirm.idempotencyKey === idempotencyKey
+        ) {
+          this.pendingPaymentConfirm = null;
+          reject(
+            new Error(
+              'Payment confirmation timed out. Hosted Fields did not respond.'
+            )
+          );
+        }
+      }, 10000);
+    });
+  }
+
+  async PaymentIntent(amount: PaymentAmount, description?: string, mccCode?: string): Promise<PaymentIntentResult> {
+    if (!this.cardField?.iframe.contentWindow) throw new Error('Card field missing');
+    const idempotencyKey = generateNonce();
+    return new Promise((resolve, reject) => {
+      this.pendingIntent = { resolve, reject, idempotencyKey };
+
+      const message = {
+        ...createBaseMessage('PAYMENT_INTENT_REQUEST', this.sessionId),
+        payload: {
+          amount,
+          description,
+          mccCode,
+          idempotencyKey,
+        },
+      };
+      this.cardField?.iframe.contentWindow!.postMessage(message, this.config.iframeOrigin);
+    });
+  }
+}
+
+export function init(config: halalpayConfig): HostedFieldsInstance {
+  return new HostedFields(config);
+}

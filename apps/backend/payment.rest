@@ -1,0 +1,194 @@
+### ─────────────────────────────────────────────
+### HalalPay API - Test Endpoints
+### ─────────────────────────────────────────────
+
+@baseUrl = http://localhost:4400
+@apiKey = sk_test_halalpay_demo_123
+@clientSecret = pi_257adf6752eed6f90cac616ea6d6fc30
+
+
+### ═══════════════════════════════════════════════
+### HEALTH CHECKS
+### ═══════════════════════════════════════════════
+
+### 1. Service Info
+GET {{baseUrl}}/
+
+
+### 4. Invalid API Key (expect 401)
+POST {{baseUrl}}/v1/payments/intent
+Content-Type: application/json
+Authorization: Bearer sk_test_WRONG_KEY
+
+{
+  "amount": 100,
+  "currency": "USD"
+}
+
+
+### ═══════════════════════════════════════════════
+### CREDIT CARD GATEWAY
+### ═══════════════════════════════════════════════
+
+### 5. Intent — Card (Visa 4242, compliant MCC)
+POST {{baseUrl}}/v1/payments/intent
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "amount": 250.00,
+  "currency": "USD",
+  "description": "Grocery purchase",
+  "mccCode": "5411"
+}
+
+### 6. Confirm intent — Card (use clientSecret from step 5)
+POST {{baseUrl}}/v1/payments/intent/{{clientSecret}}/confirm
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "paymentMethod": {
+    "BillingFirstName": "Ahmed",
+    "BillingLastName": "Khan",
+    "BillingAddress": {
+      "AddressLine1": "123 Main St",
+      "City": "Dhaka",
+      "State": "Dhaka",
+      "PostalCode": "1205",
+      "Country": "BD"
+    },
+    "CreditCard": {
+      "PaymentAccountNumber": "4242424242424242",
+      "ExpirationDate": "1228",
+      "SecurityCode": "123"
+    }
+  }
+}
+
+
+### ═══════════════════════════════════════════════
+### BKASH GATEWAY
+### ═══════════════════════════════════════════════
+
+### 7. Intent — bKash (normal amount)
+POST {{baseUrl}}/v1/payments/intent
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "amount": 350,
+  "currency": "USD",
+  "description": "Book purchase via bKash",
+  "mccCode": "5411"
+}
+
+### 8. Confirm intent — bKash
+POST {{baseUrl}}/v1/payments/intent/{{clientSecret}}/confirm
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "paymentMethod": {
+    "BillingFirstName": "Rahim",
+    "BillingLastName": "Uddin",
+    "Bkash": {
+      "MobileNumber": "01712345678",
+      "PinCode": "1234",
+      "AccountType": "personal"
+    }
+  }
+}
+
+
+### ═══════════════════════════════════════════════
+### NAGAD GATEWAY
+### ═══════════════════════════════════════════════
+
+### 9. Intent — Nagad (normal amount)
+POST {{baseUrl}}/v1/payments/intent
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "amount": 500,
+  "currency": "USD",
+  "description": "Nagad payment test",
+  "mccCode": "5411"
+}
+
+### 10. Confirm intent — Nagad
+POST {{baseUrl}}/v1/payments/intent/{{clientSecret}}/confirm
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "paymentMethod": {
+    "BillingFirstName": "Kamal",
+    "BillingLastName": "Hossain",
+    "Nagad": {
+      "MobileNumber": "01898765432",
+      "PinCode": "5678",
+      "AccountType": "personal"
+    }
+  }
+}
+
+
+### ═══════════════════════════════════════════════
+### COMPLIANCE BLOCKS
+### ═══════════════════════════════════════════════
+
+### 11. Intent — Blocked MCC 7995 (Gambling) — creates intent; confirm fails with 403
+POST {{baseUrl}}/v1/payments/intent
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "amount": 500,
+  "currency": "USD",
+  "description": "Online gambling attempt",
+  "mccCode": "7995"
+}
+
+### 12. Confirm blocked MCC intent → expect 403
+POST {{baseUrl}}/v1/payments/intent/{{clientSecret}}/confirm
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "paymentMethod": {
+    "BillingFirstName": "Bad",
+    "BillingLastName": "Actor",
+    "CreditCard": {
+      "PaymentAccountNumber": "5425233430109903",
+      "ExpirationDate": "1228",
+      "SecurityCode": "123"
+    }
+  }
+}
+
+
+### ═══════════════════════════════════════════════
+### VALIDATION ERRORS
+### ═══════════════════════════════════════════════
+
+### 13. Invalid payload — missing amount → expect 400
+POST {{baseUrl}}/v1/payments/intent
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "currency": "USD",
+  "description": "Missing amount field"
+}
+
+
+### ═══════════════════════════════════════════════
+### GET TRANSACTION
+### ═══════════════════════════════════════════════
+@txId = 00d856a7-732e-485d-88b4-7990798cbc38
+
+### 17. Get transaction status
+GET {{baseUrl}}/v1/payments/{{txId}}
+Authorization: Bearer {{apiKey}}

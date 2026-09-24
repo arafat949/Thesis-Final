@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ─── Merchant ────────────────────────────────────────────────
+model Merchant {
+  id             String          @id @default(uuid())
+  name           String
+  apiKey         String          @unique
+  webhookUrl     String?
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  transactions   Transaction[]
+  paymentMethods PaymentMethod[]
+  carts          Cart[]
+  checkoutSessions CheckoutSession[]
+}
+
+// ─── PaymentMethod ───────────────────────────────────────────
+model PaymentMethod {
+  id           String        @id @default(uuid())
+  merchantId   String
+  merchant     Merchant      @relation(fields: [merchantId], references: [id])
+  type         String        // "card" | "bkash" | "nagad"
+  // Card fields (nullable — only set when type=card)
+  cardLast4    String?
+  cardBrand    String?
+  cardExpiry   String?
+  // Mobile wallet fields (nullable — only set when type=bkash|nagad)
+  mobileNumber String?
+  accountType  String?       // "personal" | "merchant"
+  // Billing
+  billingName  String?
+  billingAddr  String?       // JSON string for full address
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+}
+
+// ─── Product ─────────────────────────────────────────────────
+model Product {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  currency    String     @default("USD")
+  category    String     // e.g. "grocery", "electronics", "clothing", "books"
+  brand       String?
+  imageUrl    String?
+  stock       Int        @default(0)
+  rating      Float      @default(0)
+  reviewCount Int        @default(0)
+  mccCode     String?    // Merchant Category Code for compliance
+  tags        String?    // comma-separated tags for search
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  cartItems   CartItem[]
+}
+
+// ─── Cart ────────────────────────────────────────────────────
+model Cart {
+  id         String     @id @default(uuid())
+  merchantId String
+  merchant   Merchant   @relation(fields: [merchantId], references: [id])
+  status     String     @default("open") // open | checked_out | abandoned
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  items      CartItem[]
+}
+
+// ─── CartItem ────────────────────────────────────────────────
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@unique([cartId, productId])
+}
+
+// ─── Transaction ─────────────────────────────────────────────
+model Transaction {
+  id              String         @id @default(uuid())
+  merchantId      String
+  merchant        Merchant       @relation(fields: [merchantId], references: [id])
+  paymentMethodId String?
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  amount          Float
+  currency        String         @default("USD")
+  status          String         @default("pending") // pending | success | failed | rejected
+  gateway         String?        // card | bkash | nagad
+  mccCode         String?
+  description     String?
+  message         String?        // gateway response message
+  gatewayRef      String?        // reference ID from the gateway
+  clientSecret    String?        @unique // stripe-like client secret
+  checkoutSessionId String?
+  checkoutSession   CheckoutSession? @relation(fields: [checkoutSessionId], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+// ─── CheckoutSession ─────────────────────────────────────────
+// A secure, short-lived session that the agent creates.
+// The user opens the URL in a browser to pay via hosted fields.
+// The agent never sees payment credentials.
+model CheckoutSession {
+  id            String        @id @default(uuid())
+  merchantId    String
+  merchant      Merchant      @relation(fields: [merchantId], references: [id])
+  cartId        String?
+  amount        Float
+  currency      String        @default("USD")
+  description   String?
+  mccCode       String?
+  status        String        @default("pending") // pending | completed | expired
+  transactionId String?       // set after payment completes
+  transactions  Transaction[]
+  expiresAt     DateTime      // short-lived (e.g. 30 min)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}

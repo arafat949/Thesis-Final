@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "halalpay": {
+      "command": "npx",
+      "args": [
+        "tsx",
+        "apps/mcp-server/server.ts"
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "mcp-server",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/mcp-server",
+  "projectType": "application",
+  "tags": ["scope:mcp", "type:server"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx tsx apps/mcp-server/server.ts"
+      }
+    },
+    "inspect": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx @modelcontextprotocol/inspector npx tsx apps/mcp-server/server.ts"
+      }
+    }
+  }
+}

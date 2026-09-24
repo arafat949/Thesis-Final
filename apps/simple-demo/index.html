@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>halalpay Hosted Fields - Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./index.css">
+</head>
+<body>
+  <div class="demo-container">
+    <div class="card">
+      <div class="header">
+        <h4>💳 Payment demonstration</h4>
+        <p>Secure payment with AmaderPay Hosted Fields</p>
+      </div>
+      
+      <form id="payment-form">
+        <div class="form-group">
+          <div id="fields-container">
+            <!-- Place for the three hosted fields -->
+          </div>
+        </div>
+        <button type="submit" class="submit-btn" id="submit-btn">
+          Pay $99.00
+        </button>
+      </form>
+      
+      <div class="result" id="result"></div>
+      <div class="test-cards">
+        <h3>🧪 Test Cards</h3>
+        <div class="test-card">
+          <span>Success</span>
+          <code>4242 4242 4242 4242</code>
+        </div>
+        <div class="test-card">
+          <span>Declined</span>
+          <code>4000 0000 0000 0002</code>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/demo.ts"></script>
+</body>
+</html>

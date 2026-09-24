@@ -1,0 +1,112 @@
+### ─────────────────────────────────────────────
+### HalalPay API - Test Endpoints
+### ─────────────────────────────────────────────
+
+@baseUrl = http://localhost:4400
+@apiKey = sk_test_halalpay_demo_123
+
+
+### ═══════════════════════════════════════════════
+### HEALTH CHECKS
+### ═══════════════════════════════════════════════
+
+### 1. Service Info
+GET {{baseUrl}}/
+
+
+### ═══════════════════════════════════════════════
+### PRODUCTS
+### ═══════════════════════════════════════════════
+@Id = 1e1ffa7f-ac5e-4462-ba48-d2ec9504d22f
+
+### 2. Search Products
+GET {{baseUrl}}/v1/products/search?q=phone&category=&minPrice=&maxPrice=&sortBy=
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+### 3. Get Product by ID
+GET {{baseUrl}}/v1/products/{{Id}}
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+### 4. List Product Categories
+GET {{baseUrl}}/v1/products/categories/list
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+
+### ═══════════════════════════════════════════════
+### CART
+### ═══════════════════════════════════════════════
+
+### 5. Get Active Cart
+GET {{baseUrl}}/v1/cart
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+### 6. Add Item to Cart
+POST {{baseUrl}}/v1/cart/add
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "productId": "{{Id}}",
+  "quantity": 1
+}
+
+### 7. Remove Item from Cart
+POST {{baseUrl}}/v1/cart/remove
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "productId": "{{Id}}"
+}
+
+### 8. Clear Cart
+POST {{baseUrl}}/v1/cart/clear
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+
+### ═══════════════════════════════════════════════
+### CHECKOUT
+### ═══════════════════════════════════════════════
+
+### 9. Create Checkout Session (from cart)
+POST {{baseUrl}}/v1/checkout/sessions
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "currency": "USD",
+  "description": "Test checkout"
+}
+
+### 10. Create Checkout Session (with explicit amount)
+POST {{baseUrl}}/v1/checkout/sessions
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "amount": 500,
+  "currency": "USD",
+  "description": "Direct amount checkout"
+}
+
+### 11. Get Checkout Session
+@sessionId = 8861e150-130d-44d3-875a-e406feaf87bb
+@txId = f98bb881-4fde-47b9-9874-1183a6893a72
+
+GET {{baseUrl}}/v1/checkout/sessions/{{sessionId}}
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+### 12. Complete Checkout Session. Notify and mark as paid
+POST {{baseUrl}}/v1/checkout/sessions/{{sessionId}}/complete
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "transactionId": "{{txId}}"
+}

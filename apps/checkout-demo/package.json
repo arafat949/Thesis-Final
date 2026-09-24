@@ -1,0 +1,8 @@
+{
+  "name": "@amaderPay/checkout-demo",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "react-hot-toast": "^2.6.0"
+  }
+}

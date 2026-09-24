@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./libs/web-sdk"
+    },
+    {
+      "path": "./libs/payment-fields"
+    },
+    {
+      "path": "./apps/checkout-demo"
+    },
+    {
+      "path": "./apps/backend"
+    },
+    {
+      "path": "./apps/checkout-session"
+    },
+    {
+      "path": "./apps/mcp-server"
+    },
+    {
+      "path": "./apps/simple-demo"
+    }
+  ]
+}

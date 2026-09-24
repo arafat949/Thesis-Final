@@ -1,0 +1,19 @@
+{
+  "name": "@amaderPay/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP Server — Agentic Commerce Protocol for HalalPay",
+  "type": "module",
+  "main": "server.ts",
+  "scripts": {
+    "start": "tsx server.ts",
+    "dev": "tsx watch server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.9"
+  }
+}
